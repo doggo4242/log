@@ -41,13 +41,13 @@ def data_to_msg(entries,embed,channel_id,guild):
 			if edit['msg']:
 				print(edit['msg'])
 				user = discord.utils.get(guild.members,id=int(entry['author_id']))
-				text = f'https://discord.com/channels/{guild.id}/{channel_id}/{entry["msg_id"]}\n{edit["msg"]}'
+				text = f'[Link](https://discord.com/channels/{guild.id}/{channel_id}/{entry["msg_id"]})\n{edit["msg"]}'
 				embed.add_field(name=f'From @{user.name}#{user.discriminator}:',value=text)
 			if edit['attachments']:
 				links = []
 				for url in edit['attachments']:
 					links.append(f'[Link]({url})')
-				user = discord.utils.get(ctx.guild.members,id=int(entry['author_id']))
+				user = discord.utils.get(guild.members,id=int(entry['author_id']))
 				embed.add_field(name=f'Attachments from @{user.name}#{user.discriminator}:',value='\n'.join(links))
 	return embed
 
@@ -61,14 +61,14 @@ async def msg_to_dict(msg):
 					data = await res.read()
 					channel = bot.get_guild(file_db_id).text_channels[0]
 					file = discord.File(io.BytesIO(data),filename=name)
-					msg = await channel.send(file=file)
-					links.append(msg.attachments[0].proxy_url)
+					file_msg = await channel.send(file=file)
+					links.append(file_msg.attachments[0].proxy_url)
 
 	return {'author_id':msg.author.id,'msg':msg.content,'msg_id':msg.id,'attachments':links}
 
 async def msg_to_db(msg):
-	dict = await msg_to_dict(msg)
-	db[str(msg.channel.id)].insert_one(dict)
+	elem = await msg_to_dict(msg)
+	db[str(msg.channel.id)].insert_one(elem)
 
 @bot.event
 async def on_command_error(ctx,error):
@@ -141,7 +141,8 @@ async def on_ready():
 							continue
 						entry = db[str(channel.id)].find({'msg_id':msg.id})
 						if not entry:
-							entries.append(msg_to_dict(msg))
+							elem = await msg_to_dict(msg)
+							entries.append(elem)
 					if entries:
 						db[str(channel.id)].insert_many(entries)
 			except Exception:
