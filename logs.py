@@ -28,16 +28,20 @@ db = client['db']
 
 auth_users = []
 
-def find_edits(msg_id):
-	return db[str(channel.id)].find({'msg_id':msg_id})
+def find_edits(channel_id,msg_id):
+	return db[str(channel_id)].find({'msg_id':msg_id})
 
-def data_to_msg(entries,embed,channel_id,guild_id):
+def data_to_msg(entries,embed,channel_id,guild):
+	print('entry len',entries.count())
 	for entry in entries:
-		edits = find_edits(entry['msg_id'])
+		edits = find_edits(channel_id,entry['msg_id'])
+		print('editlen: ',edits.count())
 		for edit in edits:
+			print('edits not empty',edit)
 			if edit['msg']:
-				user = discord.utils.get(ctx.guild.members,id=int(entry['author_id']))
-				text = f'https://discord.com/channels/{guild_id}/{channel_id}/{entry["msg_id"]}\n{edit["msg"]}'
+				print(edit['msg'])
+				user = discord.utils.get(guild.members,id=int(entry['author_id']))
+				text = f'https://discord.com/channels/{guild.id}/{channel_id}/{entry["msg_id"]}\n{edit["msg"]}'
 				embed.add_field(name=f'From @{user.name}#{user.discriminator}:',value=text)
 			if edit['attachments']:
 				links = []
@@ -47,7 +51,7 @@ def data_to_msg(entries,embed,channel_id,guild_id):
 				embed.add_field(name=f'Attachments from @{user.name}#{user.discriminator}:',value='\n'.join(links))
 	return embed
 
-async def msg_to_db(msg):
+async def msg_to_dict(msg):
 	links = []
 	for attachment in msg.attachments:
 		async with aiohttp.ClientSession() as session:
@@ -60,10 +64,15 @@ async def msg_to_db(msg):
 					msg = await channel.send(file=file)
 					links.append(msg.attachments[0].proxy_url)
 
-	db[str(msg.channel.id)].insert_one({'author_id':msg.author.id,'msg':msg.content,'msg_id':msg.id,'attachments':links})
+	return {'author_id':msg.author.id,'msg':msg.content,'msg_id':msg.id,'attachments':links}
+
+async def msg_to_db(msg):
+	dict = await msg_to_dict(msg)
+	db[str(msg.channel.id)].insert_one(dict)
 
 @bot.event
 async def on_command_error(ctx,error):
+	print('command error: ',error)
 	await msg_to_db(ctx.message)
 
 @bot.event
@@ -86,7 +95,7 @@ async def on_message(msg):
 async def last(ctx,n=1):
 	entries = db[str(ctx.channel.id)].find().sort('_id',-1).limit(n)
 	embed = discord.Embed(title=f'Last {n} messages:',description=f'In <#{ctx.channel.id}>')
-	embed = data_to_msg(entries,embed,ctx.channel.id,ctx.guild.id)
+	embed = data_to_msg(entries,embed,ctx.channel.id,ctx.guild)
 	await ctx.send(embed=embed)
 
 @bot.command()
@@ -99,7 +108,7 @@ async def search(ctx,query,channel: discord.TextChannel=None):
 		embed = discord.Embed(title=f'No results for query: {query}')
 	else:
 		embed = discord.Embed(title=f'Results for query: {query}')
-		embed = data_to_msg(entries,embed,channel.id,ctx.guild.id)
+		embed = data_to_msg(entries,embed,channel.id,ctx.guild)
 	await ctx.send(embed=embed)
 
 @bot.command()
@@ -111,7 +120,7 @@ async def snipe(ctx):
 	except:
 		pass
 	embed = discord.Embed(title='DEBUG: Sniped message')
-	embed = data_to_msg([entry],embed,ctx.channel.id,ctx.guild.id)
+	embed = data_to_msg([entry],embed,ctx.channel.id,ctx.guild)
 	await ctx.send(embed=embed)
 
 
@@ -132,12 +141,11 @@ async def on_ready():
 							continue
 						entry = db[str(channel.id)].find({'msg_id':msg.id})
 						if not entry:
-							entries.append({'author_id':msg.author.id,'msg':msg.content,'msg_id':msg.id})
+							entries.append(msg_to_dict(msg))
 					if entries:
 						db[str(channel.id)].insert_many(entries)
 			except Exception:
 				print(traceback.format_exc())
-
 	print('finished reading history')
 
 @bot.command()
