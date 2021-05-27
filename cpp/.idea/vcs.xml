@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$/deps/sleepy-discord" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/sleepy-discord/deps/asio" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/sleepy-discord/deps/cpr" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/deps/sleepy-discord/deps/websocketpp" vcs="Git" />
+  </component>
+</project>

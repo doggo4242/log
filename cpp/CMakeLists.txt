@@ -1,0 +1,12 @@
+cmake_minimum_required (VERSION 3.6)
+project(log)
+
+add_executable(log main.cpp)
+find_package(mongocxx REQUIRED)
+find_package(bsoncxx REQUIRED)
+include_directories(${LIBMONGOCXX_INCLUDE_DIR})
+include_directories(${LIBBSONCXX_INCLUDE_DIR})
+add_subdirectory(deps/sleepy-discord)
+target_link_libraries(log PRIVATE sleepy-discord)
+target_link_libraries(log PRIVATE mongo::bsoncxx_shared)
+target_link_libraries(log PRIVATE mongo::mongocxx_shared)
