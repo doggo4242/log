@@ -32,17 +32,16 @@ def find_edits(channel_id,msg_id):
 	return db[str(channel_id)].find({'msg_id':msg_id})
 
 def data_to_msg(entries,embed,channel_id,guild):
-	print('entry len',entries.count())
 	for entry in entries:
 		edits = find_edits(channel_id,entry['msg_id'])
-		print('editlen: ',edits.count())
 		for edit in edits:
-			print('edits not empty',edit)
 			if edit['msg']:
-				print(edit['msg'])
 				user = discord.utils.get(guild.members,id=int(entry['author_id']))
 				text = f'[Link](https://discord.com/channels/{guild.id}/{channel_id}/{entry["msg_id"]})\n{edit["msg"]}'
-				embed.add_field(name=f'From @{user.name}#{user.discriminator}:',value=text)
+				if not user:
+					embed.add_field(name=f'From @Deleted User',value=text)
+				else:
+					embed.add_field(name=f'From @{user.name}#{user.discriminator}:',value=text)
 			if edit['attachments']:
 				links = []
 				for url in edit['attachments']:
@@ -61,8 +60,11 @@ async def msg_to_dict(msg):
 					data = await res.read()
 					channel = bot.get_guild(file_db_id).text_channels[0]
 					file = discord.File(io.BytesIO(data),filename=name)
-					file_msg = await channel.send(file=file)
-					links.append(file_msg.attachments[0].proxy_url)
+					try:
+						file_msg = await channel.send(file=file)
+						links.append(file_msg.attachments[0].proxy_url)
+					except:
+						pass
 
 	return {'author_id':msg.author.id,'msg':msg.content,'msg_id':msg.id,'attachments':links}
 
@@ -132,19 +134,21 @@ async def on_ready():
 			continue
 		for channel in guild.text_channels:
 			try:
-				async for msgs in channel.history(limit=None).chunk(10000):
-					# debug - remove later
-					print(msgs[-1],msgs[-1].content)
-					entries = []
-					for msg in msgs:
-						if msg.author == bot.user:
-							continue
-						entry = db[str(channel.id)].find({'msg_id':msg.id})
-						if not entry:
-							elem = await msg_to_dict(msg)
-							entries.append(elem)
-					if entries:
-						db[str(channel.id)].insert_many(entries)
+				latest_msgs = [int(db[str(channel.id)].find().sort('_id',-1).limit(1)[0]['msg_id'])]
+				latest_msgs.append(int(db[str(channel.id)].find().sort('_id',1).limit(1)[0]['msg_id']))
+				if channel.last_message_id not in latest_msgs:
+					latest_msg = await channel.fetch_message(max(latest_msgs[0],latest_msgs[1]))
+					async for msgs in channel.history(limit=None,after=latest_msg).chunk(10000):
+						entries = []
+						for msg in msgs:
+							if msg.author == bot.user:
+								continue
+							entry = db[str(channel.id)].find_one({'msg_id':msg.id})
+							if not entry:
+								elem = await msg_to_dict(msg)
+								entries.append(elem)
+						if entries:
+							db[str(channel.id)].insert_many(entries)
 			except Exception:
 				print(traceback.format_exc())
 	print('finished reading history')
