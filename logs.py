@@ -47,7 +47,7 @@ def data_to_msg(entries,embed,channel_id,guild_id):
 				embed.add_field(name=f'Attachments from @{user.name}#{user.discriminator}:',value='\n'.join(links))
 	return embed
 
-def msg_to_db(msg):
+async def msg_to_db(msg):
 	links = []
 	for attachment in msg.attachments:
 		async with aiohttp.ClientSession() as session:
@@ -55,7 +55,7 @@ def msg_to_db(msg):
 					name = attachment.proxy_url
 					name = name[name.rfind('/')+1:]
 					data = await res.read()
-					channel = bot.get_guild(file_db_id).channels[0]
+					channel = bot.get_guild(file_db_id).text_channels[0]
 					file = discord.File(io.BytesIO(data),filename=name)
 					msg = await channel.send(file=file)
 					links.append(msg.attachments[0].proxy_url)
@@ -64,11 +64,11 @@ def msg_to_db(msg):
 
 @bot.event
 async def on_command_error(ctx,error):
-	msg_to_db(ctx.message)
+	await msg_to_db(ctx.message)
 
 @bot.event
 async def on_message_edit(before,after):
-	msg_to_db(after)
+	await msg_to_db(after)
 
 @bot.event
 async def on_message(msg):
@@ -76,11 +76,11 @@ async def on_message(msg):
 		return
 	if any(i in msg.content[:2] for i in '!@$%&?+=-\''):
 		try:
-			await bot.process_commands(msg):
+			await bot.process_commands(msg)
 			return
 		except:
 			pass
-	msg_to_db(msg)
+	await msg_to_db(msg)
 
 @bot.command()
 async def last(ctx,n=1):
@@ -95,7 +95,7 @@ async def search(ctx,query,channel: discord.TextChannel=None):
 	entries = db[str(channel.id)].find({'msg':{'$regex':f'.*{re.escape(query)}.*'}}).limit(20)
 	embed = None
 	if not entries:
-		msg_to_db(ctx.message)
+		await msg_to_db(ctx.message)
 		embed = discord.Embed(title=f'No results for query: {query}')
 	else:
 		embed = discord.Embed(title=f'Results for query: {query}')
@@ -125,7 +125,7 @@ async def on_ready():
 			try:
 				async for msgs in channel.history(limit=None).chunk(10000):
 					# debug - remove later
-					print(msgs[0])
+					print(msgs[-1],msgs[-1].content)
 					entries = []
 					for msg in msgs:
 						if msg.author == bot.user:
