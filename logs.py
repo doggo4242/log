@@ -6,7 +6,7 @@ import traceback
 import io
 import aiohttp
 import os
-import re
+import regex as re
 
 '''
 TODO: fix this garbage
@@ -27,6 +27,8 @@ client = pymongo.MongoClient('mongodb://localhost:27017/')
 db = client['db']
 
 auth_users = []
+
+control_re = re.compile(r'\p{C}')
 
 def find_edits(channel_id,msg_id):
 	return db[str(channel_id)].find({'msg_id':msg_id})
@@ -63,8 +65,30 @@ async def msg_to_dict(msg):
 					try:
 						file_msg = await channel.send(file=file)
 						links.append(file_msg.attachments[0].proxy_url)
-					except:
-						pass
+					except Exception as e:
+						print(traceback.format_exc())
+
+	emotes = re.findall(r'<a?:\w*:\d*>', msg.content)
+
+	custom_emotes = []
+	for emote in emotes:
+		match = re.match(r'<(a?):([a-zA-Z0-9\_]+):([0-9]+)>$', emote)
+		emoji_animated = bool(match.group(1))
+		emoji_name = match.group(2)
+		emoji_id = int(match.group(3))
+		custom_emotes.append(discord.PartialEmoji.with_state(bot._connection, animated=emoji_animated, name=emoji_name,id=emoji_id))
+
+	for emote in custom_emotes:
+		data = await emote.url.read()
+		name = str(emote.url)
+		name = name[name.rfind('/')+1:]
+		channel = bot.get_guild(file_db_id).text_channels[0]
+		file = discord.File(io.BytesIO(data),filename=name)
+		try:
+			file_msg = await channel.send(file=file)
+			links.append(file_msg.attachments[0].proxy_url)
+		except Exception as e:
+			print(traceback.format_exc())
 
 	return {'author_id':msg.author.id,'msg':msg.content,'msg_id':msg.id,'attachments':links}
 
@@ -85,12 +109,14 @@ async def on_message_edit(before,after):
 async def on_message(msg):
 	if msg.author == bot.user:
 		return
+	msg_strip = control_re.sub('',msg.content)
 	if any(i in msg.content[:2] for i in '!@$%&?+=-\''):
 		try:
+			msg.content = msg_strip
 			await bot.process_commands(msg)
 			return
-		except:
-			pass
+		except Exception as e:
+			print(traceback.format_exc())
 	await msg_to_db(msg)
 
 @bot.command()
@@ -119,8 +145,8 @@ async def snipe(ctx):
 	try:
 		msg = ctx.fetch_message(int(entry[0]['msg_id']))
 		await ctx.send('Nothing to snipe')
-	except:
-		pass
+	except Exception as e:
+		print(traceback.format_exc())
 	embed = discord.Embed(title='DEBUG: Sniped message')
 	embed = data_to_msg([entry],embed,ctx.channel.id,ctx.guild)
 	await ctx.send(embed=embed)
@@ -134,11 +160,12 @@ async def on_ready():
 			continue
 		for channel in guild.text_channels:
 			try:
-				latest_msgs = [int(db[str(channel.id)].find().sort('_id',-1).limit(1)[0]['msg_id'])]
-				latest_msgs.append(int(db[str(channel.id)].find().sort('_id',1).limit(1)[0]['msg_id']))
-				if channel.last_message_id not in latest_msgs:
-					latest_msg = await channel.fetch_message(max(latest_msgs[0],latest_msgs[1]))
-					async for msgs in channel.history(limit=None,after=latest_msg).chunk(10000):
+				latest_db_msg = None
+				if str(channel.id) in db.list_collection_names():
+					latest_db_msg = int(db[str(channel.id)].find().sort('_id',-1).limit(1)[0]['msg_id'])
+				if channel.last_message_id != latest_db_msg:
+					latest_msg = await channel.fetch_message(latest_db_msg) if latest_db_msg else None
+					async for msgs in channel.history(limit=None,after=latest_msg,oldest_first=True).chunk(10000):
 						entries = []
 						for msg in msgs:
 							if msg.author == bot.user:
@@ -159,6 +186,13 @@ async def shutdown(ctx):
 		await bot.close()
 	else:
 		await ctx.send("can't do that ya dum dum")
+
+@bot.command()
+async def unpurge(ctx,n: int):
+	entries = reversed(db[str(ctx.channel.id)].find().sort('_id',-1).limit(n))
+	for entry in entries:
+		embed = discord.Embed(title='Message:')
+		await ctx.send(embed=data_to_msg([entry],embed,ctx.channel.id,ctx.guild))
 
 with open('auth_users.txt','r') as f:
 	auth_users = f.read().splitlines()
