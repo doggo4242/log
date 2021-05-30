@@ -21,6 +21,7 @@ file_db_id=int(847308528515416064)
 
 intents = discord.Intents.default()
 intents.members = True
+intents.guilds = True
 bot = commands.Bot(command_prefix='l!',intents=intents)
 
 client = pymongo.MongoClient('mongodb://localhost:27017/')
@@ -78,7 +79,7 @@ async def msg_to_dict(msg):
 		emoji_id = int(match.group(3))
 		custom_emotes.append(discord.PartialEmoji.with_state(bot._connection, animated=emoji_animated, name=emoji_name,id=emoji_id))
 
-	for emote in custom_emotes:
+	for i,emote in enumerate(custom_emotes):
 		data = await emote.url.read()
 		name = str(emote.url)
 		name = name[name.rfind('/')+1:]
@@ -86,7 +87,7 @@ async def msg_to_dict(msg):
 		file = discord.File(io.BytesIO(data),filename=name)
 		try:
 			file_msg = await channel.send(file=file)
-			links.append(file_msg.attachments[0].proxy_url)
+			msg.content = msg.content.replace(emotes[i],f'[:{emote.name}:]({file_msg.attachments[0].proxy_url})')
 		except Exception as e:
 			print(traceback.format_exc())
 
@@ -178,6 +179,7 @@ async def on_ready():
 							db[str(channel.id)].insert_many(entries)
 			except Exception:
 				print(traceback.format_exc())
+				print(channel.id)
 	print('finished reading history')
 
 @bot.command()
@@ -193,6 +195,11 @@ async def unpurge(ctx,n: int):
 	for entry in entries:
 		embed = discord.Embed(title='Message:')
 		await ctx.send(embed=data_to_msg([entry],embed,ctx.channel.id,ctx.guild))
+
+@bot.event
+async def on_guild_channel_delete(channel):
+	print('deleting channel:',channel.name)
+	db[str(channel.id)].drop()
 
 with open('auth_users.txt','r') as f:
 	auth_users = f.read().splitlines()
