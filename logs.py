@@ -5,24 +5,15 @@ import disputils
 import pymongo
 import traceback
 import io
-import aiohttp
 import os
 import regex as re
-import time
 
 '''
-TODO: fix this garbage
-- check for command error with on_command_error x
-- check for edits with on_message_edit x
-- check for no results in search x
-- timestamp bc history, _id does not allow concurrency with indexing x
-- add replies x
-- add file db x
-- allow setting of file db channel x
+TODO:
+- fix pagination
 - rebuild db and test
 '''
 
-#file_db_id=int(847308528515416064)
 file_db_channel=None
 
 intents = discord.Intents.default()
@@ -31,7 +22,6 @@ intents.guilds = True
 bot = commands.Bot(command_prefix='l!',intents=intents)
 
 client = pymongo.MongoClient('mongodb://localhost:27017/')
-#db = client['db']
 file_db = client['file_db']['links']
 
 auth_users = []
