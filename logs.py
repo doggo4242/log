@@ -11,6 +11,7 @@ import regex as re
 '''
 TODO:
 - fix pagination
+- convert to cogs
 - rebuild db and test
 '''
 
@@ -52,10 +53,8 @@ def data_to_msg(entries,title,desc,channel_id,guild,is_reply):
 	for entry in entries:
 		for edit in entry['edits']:
 			if edit:
-				user = bot.get_user(int(entry['author_id']))
-				user = f'@{user.name}#{user.discriminator}' if user else '@Deleted User#0000'
 				text = f'[Link](https://discord.com/channels/{guild.id}/{channel_id}/{entry["msg_id"]})\n{edit}'
-				name = f'From {user}:' if not is_reply else f'In response to {user}:'
+				name = f'From {entry["author"]}:' if not is_reply else f'In response to {entry["author"]}:'
 
 				n_fields = len(text)//field_len+1
 				count+=len(text)+(n_fields*len(name))+(n_fields*len('...'))
@@ -88,8 +87,6 @@ def data_to_msg(entries,title,desc,channel_id,guild,is_reply):
 			links = []
 			for url in entry['attachments']:
 				links.append(f'[Link]({url})')
-			user = bot.get_user(int(entry['author_id']))
-			user = f'@{user.name}#{user.discriminator}' if user else '@Deleted User#0000'
 
 			count+=sum([len(i) for i in links])
 			if (count//embed_len+1) > len(embeds):
@@ -98,7 +95,7 @@ def data_to_msg(entries,title,desc,channel_id,guild,is_reply):
 
 			chunks = chunk_list(links,field_len)
 			for chunk in chunks:
-				embeds[count//embed_len].add_field(name=f'Attachments from {user}',value=chunk)
+				embeds[count//embed_len].add_field(name=f'Attachments from {entry["author"]}',value=chunk)
 				print('embed field len:',len(chunk))
 
 	for embed in embeds:
@@ -150,7 +147,7 @@ async def msg_to_dict(msg):
 
 	reply_id = msg.reference.message_id if msg.reference and msg.reference.message_id else None
 
-	return {'author_id':msg.author.id,'edits':[msg.content],'msg_id':msg.id,'attachments':links,'deleted':False,'timestamp':msg.created_at.timestamp(),'reply':reply_id}
+	return {'author':f'@{msg.author.name}#{msg.author.discriminator}','edits':[msg.content],'msg_id':msg.id,'attachments':links,'deleted':False,'timestamp':msg.created_at.timestamp(),'reply':reply_id}
 
 async def msg_to_db(msg):
 	elem = await msg_to_dict(msg)
@@ -233,7 +230,7 @@ async def snipe(ctx):
 async def on_ready():
 	await bot.change_presence(activity=discord.Activity(name='you 👁️',type=discord.ActivityType.watching))
 	global file_db_channel
-	with open('file_db.txt','r') as f:
+	with open('config/file_db.txt','r') as f:
 		file_db_channel = int(f.read())
 
 	for guild in bot.guilds:
@@ -271,7 +268,7 @@ async def shutdown(ctx):
 
 @bot.command()
 async def unpurge(ctx,n: int):
-	entries = reversed(list(client[str(ctx.guild.id)][str(ctx.channel.id)].find({'deleted':True}).sort('timestamp',-1).limit(n)))
+	entries = client[str(ctx.guild.id)][str(ctx.channel.id)].find({'deleted':True}).sort('timestamp',-1).limit(n)[::-1]
 	for entry in entries:
 		await ctx.send(embed=data_to_msg([entry],'Message:','',ctx.channel.id,ctx.guild,False)[0])
 
@@ -315,7 +312,7 @@ async def setDbChannel(ctx):
 	file_db_channel = ctx.channel.id
 	await ctx.send(f'Files will now be stored in {ctx.channel.mention}')
 
-with open('auth_users.txt','r') as f:
+with open('config/auth_users.txt','r') as f:
 	auth_users = f.read().splitlines()
 
 bot.run(os.getenv('LOG_TOKEN'))

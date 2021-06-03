@@ -10,3 +10,8 @@ services:
     ports:
       - "27017:27017"
     restart: unless-stopped
+
+  log:
+    image: alpine:edge
+    volumes:
+      - ./config:/etc/log      
