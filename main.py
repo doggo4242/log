@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+import discord
+from discord.ext import commands
+import pymongo
+import os
+from cogs import *
+
+'''
+TODO:
+- fix pagination
+- convert to cogs x
+- test
+'''
+
+intents = discord.Intents.default()
+intents.members = True
+intents.guilds = True
+bot = commands.Bot(command_prefix='l!',intents=intents)
+
+client = pymongo.MongoClient('mongodb://localhost:27017/')
+file_db = client['file_db']['links']
+
+bot.add_cog(Util(bot,client,file_db))
+bot.add_cog(Management(bot))
+bot.add_cog(Listeners(bot))
+bot.add_cog(LogCommands(bot))
+bot.run(os.getenv('LOG_TOKEN'))

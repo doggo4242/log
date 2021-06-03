@@ -4,19 +4,20 @@ import io
 import regex as re
 
 class Util(commands.Cog):
-	def __init__(bot,client,channel):
+	def __init__(self,bot,client,file_db):
 		self.bot = bot
 		self.client = client
-		self.file_db_channel = channel
+		self.file_db_channel = None
+		self.file_db = file_db
 		self.emote_finder_re = re.compile(r'<a?:\w*:\d*>')
 		self.emote_matcher_re = re.compile(r'<(a?):([a-zA-Z0-9\_]+):([0-9]+)>$')
 
-	def chunk_str(string,n):
+	def chunk_str(self,string,n):
 		f = string[:n]
 		n-=len('...')
 		return [f]+['...'+string[i:i+n] for i in range(n,len(string),n)]
 
-	def chunk_list(lst,n):
+	def chunk_list(self,lst,n):
 		chunks = []
 		count = 0
 		for item in lst:
@@ -27,7 +28,7 @@ class Util(commands.Cog):
 				chunks[count//n].append(item)
 		return chunks
 
-	def data_to_msg(entries,title,desc,channel_id,guild,is_reply):
+	def data_to_msg(self,entries,title,desc,channel_id,guild,is_reply):
 		field_len = 1024
 		embed_len = 6000
 		embeds = []
@@ -46,7 +47,7 @@ class Util(commands.Cog):
 						embeds.append(discord.Embed(title=title,description=desc))
 						count += len(title)+len(desc)
 
-					chunks = chunk_str(text,field_len)
+					chunks = self.chunk_str(text,field_len)
 					embeds[count//embed_len].add_field(name=name,value=chunks[0])
 					for chunk in chunks[1:]:
 						embeds[count//embed_len].add_field(name=name,value=chunk)
@@ -75,19 +76,19 @@ class Util(commands.Cog):
 					embeds.append(discord.Embed(title=title,description=desc))
 					count += len(title)+len(desc)
 
-				chunks = chunk_list(links,field_len)
-				for chunk in chunks:
-					embeds[count//embed_len].add_field(name=f'Attachments from {entry["author"]}',value=chunk)
-					print('embed field len:',len(chunk))
+				chunks = self.chunk_list(links,field_len)
+				for chunk_lst in chunks:
+					embeds[count//embed_len].add_field(name=f'Attachments from {entry["author"]}',value='\n'.join(chunk_lst))
+					print('embed field len:',len(chunk_lst[0]))
 
 		for embed in embeds:
 			print(len(embed))
 		return embeds
 
-	async def msg_to_dict(msg):
+	async def msg_to_dict(self,msg):
 		links = []
 		for attachment in msg.attachments:
-			record = file_db.find_one({'orig_link':attachment.proxy_url})
+			record = self.file_db.find_one({'orig_link':attachment.proxy_url})
 			if record:
 				links.append(record['db_link'])
 			else:
@@ -96,7 +97,7 @@ class Util(commands.Cog):
 					file = await attachment.to_file(use_cached=True)
 					file_msg = await channel.send(file=file)
 					links.append(file_msg.attachments[0].proxy_url)
-					file_db.insert_one({'orig_link':attachment.proxy_url,'db_link':file_msg.attachments[0].proxy_url})
+					self.file_db.insert_one({'orig_link':attachment.proxy_url,'db_link':file_msg.attachments[0].proxy_url})
 				except Exception as e:
 					print(traceback.format_exc())
 
@@ -111,7 +112,7 @@ class Util(commands.Cog):
 			custom_emotes.append(discord.PartialEmoji.with_state(self.bot._connection, animated=emoji_animated, name=emoji_name,id=emoji_id))
 
 		for i,emote in enumerate(custom_emotes):
-			record = file_db.find_one({'orig_link':str(emote.url)})
+			record = self.file_db.find_one({'orig_link':str(emote.url)})
 			if record:
 				msg.content = msg.content.replace(emotes[i],f'[:{emote.name}:]({record["db_link"]})')
 			else:
@@ -123,7 +124,7 @@ class Util(commands.Cog):
 				try:
 					file_msg = await channel.send(file=file)
 					msg.content = msg.content.replace(emotes[i],f'[:{emote.name}:]({file_msg.attachments[0].proxy_url})')
-					file_db.insert_one({'orig_link':str(emote.url),'db_link':file_msg.attachments[0].proxy_url})
+					self.file_db.insert_one({'orig_link':str(emote.url),'db_link':file_msg.attachments[0].proxy_url})
 				except Exception as e:
 					print(traceback.format_exc())
 
@@ -131,6 +132,6 @@ class Util(commands.Cog):
 
 		return {'author':f'@{msg.author.name}#{msg.author.discriminator}','edits':[msg.content],'msg_id':msg.id,'attachments':links,'deleted':False,'timestamp':msg.created_at.timestamp(),'reply':reply_id}
 
-	async def msg_to_db(msg):
-		elem = await msg_to_dict(msg)
+	async def msg_to_db(self,msg):
+		elem = await self.msg_to_dict(msg)
 		self.client[str(msg.guild.id)][str(msg.channel.id)].insert_one(elem)

@@ -1,22 +1,24 @@
+import discord
 from discord.ext import commands
 import disputils
 import regex as re
 
 class LogCommands(commands.Cog):
-	def __init__(bot):
+	def __init__(self,bot):
 		self.bot = bot
 		self.util = self.bot.get_cog('Util')
 		self.lnk_matcher = re.compile('https://discord.com/channels/[0-9]{18}/([0-9]{18})/([0-9]{18})')
 
 	@commands.command()
-	async def last(ctx,n=1):
+	async def last(self,ctx,n=1):
 		entries = self.util.client[str(ctx.guild.id)][str(ctx.channel.id)].find().sort('timestamp',-1).limit(n)
 		embeds = self.util.data_to_msg(entries,f'Last {n} messages:',f'In <#{ctx.channel.id}>',ctx.channel.id,ctx.guild,False)
+		print(len(embeds))
 		paginator = disputils.BotEmbedPaginator(ctx,embeds)
 		await paginator.run()
 
 	@commands.command()
-	async def search(ctx,query,channel: discord.TextChannel=None):
+	async def search(self,ctx,query,channel: discord.TextChannel=None):
 		channel = ctx.channel if not channel else channel
 		entries = self.util.client[str(ctx.guild.id)][str(channel.id)].find({'edits':{'$regex':f'.*{re.escape(query)}.*'}}).limit(20)
 		embed = None
@@ -30,7 +32,7 @@ class LogCommands(commands.Cog):
 			await paginator.run()
 
 	@commands.command()
-	async def snipe(ctx):
+	async def snipe(self,ctx):
 		entries = self.util.client[str(ctx.guild.id)][str(ctx.channel.id)].find().sort('timestamp',-1).limit(20)
 		for entry in entries:
 			print('deleted:',entry['deleted'],entry['edits'][0])
@@ -42,13 +44,13 @@ class LogCommands(commands.Cog):
 		await ctx.send('Nothing to snipe')
 
 	@commands.command()
-	async def unpurge(ctx,n: int):
+	async def unpurge(self,ctx,n: int):
 		entries = self.util.client[str(ctx.guild.id)][str(ctx.channel.id)].find({'deleted':True}).sort('timestamp',-1).limit(n)[::-1]
 		for entry in entries:
 			await ctx.send(embed=data_to_msg([entry],'Message:','',ctx.channel.id,ctx.guild,False)[0])
 
 	@commands.command()
-	async def after(ctx,msg,n=1):
+	async def after(self,ctx,msg,n=1):
 		if n <= 0:
 			await ctx.send('Invalid range')
 			return
@@ -66,7 +68,7 @@ class LogCommands(commands.Cog):
 		await paginator.run()
 
 	@commands.command()
-	async def before(ctx,msg,n=1):
+	async def before(self,ctx,msg,n=1):
 		if n <= 0:
 			await ctx.send('Invalid range')
 			return
