@@ -29,8 +29,8 @@ class Util(commands.Cog):
 		return chunks
 
 	def data_to_msg(self,entries,title,desc,channel_id,guild,is_reply):
-		field_len = 1024
-		embed_len = 6000
+		field_len = 512
+		embed_len = 3000
 		embeds = []
 		count = len(title)+len(desc)
 		for entry in entries:
@@ -56,7 +56,7 @@ class Util(commands.Cog):
 			if entry['reply'] and not is_reply:
 				reply = self.client[str(guild.id)][str(channel_id)].find_one({'msg_id':entry['reply']})
 				if reply:
-					reply_embed = data_to_msg([reply],title,desc,channel_id,guild,True)[0]
+					reply_embed = self.data_to_msg([reply],title,desc,channel_id,guild,True)[0]
 					text_len = sum([len(field.value) for field in reply_embed.fields])
 					count+=text_len+((text_len//field_len+1)*len(reply_embed.fields[0].name))
 					if (count//embed_len+1) > len(embeds):

@@ -18,7 +18,7 @@ class Management(commands.Cog):
 		if str(ctx.author.id) not in auth_users:
 			await ctx.send("can't do that ya dum dum")
 			return
-		with open('file_db.txt','w') as f:
+		with open('/etc/log/file_db.txt','w') as f:
 			f.write(str(ctx.channel.id))
 		self.util.file_db_channel = ctx.channel.id
 		await ctx.send(f'Files will now be stored in {ctx.channel.mention}')

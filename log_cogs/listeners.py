@@ -9,10 +9,10 @@ class Listeners(commands.Cog):
 		self.util = self.bot.get_cog('Util')
 		self.control_re = re.compile(r'\p{C}')
 
-#	@commands.Cog.listener()
-#	async def on_command_error(self,ctx,error):
-#		print('command error: ',error)
-#		await self.util.msg_to_db(ctx.message)
+	@commands.Cog.listener()
+	async def on_command_error(self,ctx,error):
+		print('command error: ',error)
+		await self.util.msg_to_db(ctx.message)
 
 	@commands.Cog.listener()
 	async def on_message_edit(self,before,after):
@@ -52,11 +52,11 @@ class Listeners(commands.Cog):
 	@commands.Cog.listener()
 	async def on_ready(self):
 		await self.bot.change_presence(activity=discord.Activity(name='you 👁️',type=discord.ActivityType.watching))
-		with open('config/auth_users.txt','r') as f:
+		with open('/etc/log/auth_users.txt','r') as f:
 			mgmt = self.bot.get_cog('Management')
 			mgmt.auth_users = f.read().splitlines()
 
-		with open('config/file_db.txt','r') as f:
+		with open('/etc/log/file_db.txt','r') as f:
 			self.util.file_db_channel = int(f.read())
 
 		for guild in self.bot.guilds:

@@ -37,7 +37,7 @@ class LogCommands(commands.Cog):
 		for entry in entries:
 			print('deleted:',entry['deleted'],entry['edits'][0])
 			if entry['deleted']:
-				embed = data_to_msg([entry],'Sniped message:','',ctx.channel.id,ctx.guild,False)[0]
+				embed = self.util.data_to_msg([entry],'Sniped message:','',ctx.channel.id,ctx.guild,False)[0]
 				await ctx.send(embed=embed)
 				return
 
@@ -47,7 +47,7 @@ class LogCommands(commands.Cog):
 	async def unpurge(self,ctx,n: int):
 		entries = self.util.client[str(ctx.guild.id)][str(ctx.channel.id)].find({'deleted':True}).sort('timestamp',-1).limit(n)[::-1]
 		for entry in entries:
-			await ctx.send(embed=data_to_msg([entry],'Message:','',ctx.channel.id,ctx.guild,False)[0])
+			await ctx.send(embed=self.util.data_to_msg([entry],'Message:','',ctx.channel.id,ctx.guild,False)[0])
 
 	@commands.command()
 	async def after(self,ctx,msg,n=1):
@@ -55,7 +55,7 @@ class LogCommands(commands.Cog):
 			await ctx.send('Invalid range')
 			return
 		db = self.util.client[str(ctx.guild.id)]
-		match = lnk_matcher.match(msg)
+		match = self.lnk_matcher.match(msg)
 		channel_id = match.group(1) if match else str(ctx.channel.id)
 		msg_id = int(match.group(2)) if match else int(msg)
 		msg_entry = db[channel_id].find_one({'msg_id':msg_id})
@@ -63,7 +63,7 @@ class LogCommands(commands.Cog):
 			await ctx.send('Message not found')
 			return
 		entries = db[channel_id].find({'timestamp':{'$gt':msg_entry['timestamp']}}).sort('timestamp',1).limit(n)
-		embeds = data_to_msg(entries,f'First {n} messages after requested message:',f'In <#{ctx.channel.id}>',int(channel_id),ctx.guild,False)
+		embeds = self.util.data_to_msg(entries,f'First {n} messages after requested message:',f'In <#{ctx.channel.id}>',int(channel_id),ctx.guild,False)
 		paginator = disputils.BotEmbedPaginator(ctx,embeds)
 		await paginator.run()
 
@@ -72,8 +72,8 @@ class LogCommands(commands.Cog):
 		if n <= 0:
 			await ctx.send('Invalid range')
 			return
-		db = client[str(ctx.guild.id)]
-		match = lnk_matcher.match(msg)
+		db = self.util.client[str(ctx.guild.id)]
+		match = self.lnk_matcher.match(msg)
 		channel_id = match.group(1) if match else str(ctx.channel.id)
 		msg_id = int(match.group(2)) if match else int(msg)
 		msg_entry = db[channel_id].find_one({'msg_id':msg_id})
@@ -81,6 +81,6 @@ class LogCommands(commands.Cog):
 			await ctx.send('Message not found')
 			return
 		entries = db[channel_id].find({'timestamp':{'$lt':msg_entry['timestamp']}}).sort('timestamp',-1).limit(n)
-		embeds = data_to_msg(entries,f'Last {n} messages before requested message:',f'In <#{ctx.channel.id}>',int(channel_id),ctx.guild,False)
+		embeds = self.util.data_to_msg(entries,f'Last {n} messages before requested message:',f'In <#{ctx.channel.id}>',int(channel_id),ctx.guild,False)
 		paginator = disputils.BotEmbedPaginator(ctx,embeds)
 		await paginator.run()

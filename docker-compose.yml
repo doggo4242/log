@@ -13,5 +13,9 @@ services:
 
   log:
     image: alpine:edge
+    build:
+      context: .
+      args:
+        token: $LOG_TOKEN
     volumes:
       - ./config:/etc/log      
