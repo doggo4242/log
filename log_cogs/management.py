@@ -1,3 +1,19 @@
+'''
+   Copyright 2021 doggo4242 Development
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+'''
+
 from discord.ext import commands
 
 class Management(commands.Cog):
@@ -11,12 +27,12 @@ class Management(commands.Cog):
 		if str(ctx.author.id) in auth_users:
 			await bot.close()
 		else:
-			await ctx.send("can't do that ya dum dum")
+			await ctx.send("Only an authorized user may perform this action")
 
 	@commands.command()
 	async def setDbChannel(self,ctx):
 		if str(ctx.author.id) not in auth_users:
-			await ctx.send("can't do that ya dum dum")
+			await ctx.send("Only an authorized user may perform this action")
 			return
 		with open('/etc/log/file_db.txt','w') as f:
 			f.write(str(ctx.channel.id))
